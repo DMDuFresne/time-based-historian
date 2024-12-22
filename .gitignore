@@ -1,0 +1,28 @@
+# Ignore sensitive environment files
+.env
+
+# Ignore Docker-related files and directories
+**/node_modules
+**/.dockerignore
+
+# Ignore generated files
+**/logs
+**/tmp
+**/data
+
+# Ignore OS-specific files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE/editor-specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Ignore Docker volumes
+volumes/
+
+# Ignore build artifacts
+build/
+dist/

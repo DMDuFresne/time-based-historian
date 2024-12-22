@@ -1,0 +1,148 @@
+# ----------------------------------------------------------------------------------------------------
+# Portainer Template for Timebase Infrastructure
+# Includes Timebase Historian, Explorer, Collector, Node-RED, and EMQX MQTT Broker
+# ----------------------------------------------------------------------------------------------------
+# References:
+# - https://timebase.flow-software.com/en/knowledge-base/start-here
+# - https://github.com/node-red/node-red
+# - https://github.com/emqx/emqx
+# ----------------------------------------------------------------------------------------------------
+
+services:
+
+  # Timebase Historian Service
+  timebase-historian:
+    image: timebase/historian:${HISTORIAN_TAG:-latest}                            # Docker image for Timebase Historian with variable tag
+    hostname: ${HISTORIAN_HOSTNAME:-historian}                                    # Hostname used for internal networking
+    container_name: ${HISTORIAN_CONTAINER_NAME:-historian}                        # Container name for easier management
+    ports:
+      - "${HISTORIAN_PORT:-4511}:4511"                                            # Map the Historian REST API port
+    restart: unless-stopped                                                       # Automatically restart unless stopped manually
+    volumes:
+      - historian-data:/timebase/data
+      - historian-logs:/timebase/logs
+    networks:
+      - timebase-network                                                          # Connect to the shared application network
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/4511 || exit 1'"]   # Health check for listening on port 4511
+      interval: 10s                                                               # Run the health check every 10 seconds
+      timeout: 5s                                                                 # Fail the check if no response within 5 seconds
+      retries: 3                                                                  # Retry up to 3 times before failing
+      start_period: 30s                                                           # Grace period before health checks start
+
+  # Timebase Collector Service
+  timebase-collector:
+    image: timebase/collector:${COLLECTOR_TAG:-latest}                            # Docker image for Timebase Collector with variable tag
+    hostname: ${COLLECTOR_HOSTNAME:-collector}                                    # Hostname used for internal networking
+    container_name: ${COLLECTOR_CONTAINER_NAME:-collector}                        # Container name for easier management
+    ports:
+      - "${COLLECTOR_PORT:-4521}:4521"                                            # Map the Collector REST API port
+    restart: unless-stopped                                                       # Automatically restart unless stopped manually
+    depends_on:
+      timebase-historian:
+        condition: service_healthy                                                # Wait until Historian service is healthy
+      mqtt-broker:
+        condition: service_healthy                                                # Wait until MQTT Broker is healthy
+    volumes:
+      - collector-config:/timebase/config
+      - collector-data:/timebase/data
+      - collector-logs:/timebase/logs
+    environment:
+      - ACTIVE=${COLLECTOR_ACTIVE:-false}                                         # Set the initial state of the Collector service
+    networks:
+      - timebase-network                                                          # Connect to the shared application network
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/4521 || exit 1'"]   # Health check for listening on port 4521
+      interval: 10s                                                               # Run the health check every 10 seconds
+      timeout: 5s                                                                 # Fail the check if no response within 5 seconds
+      retries: 3                                                                  # Retry up to 3 times before failing
+      start_period: 30s                                                           # Grace period before health checks start
+
+  # Timebase Explorer Service
+  timebase-explorer:
+    image: timebase/explorer:${EXPLORER_TAG:-latest}                              # Docker image for Timebase Explorer with variable tag
+    hostname: ${EXPLORER_HOSTNAME:-explorer}                                      # Hostname used for internal networking
+    container_name: ${EXPLORER_CONTAINER_NAME:-explorer}                          # Container name for easier management
+    ports:
+      - "${EXPLORER_PORT:-4531}:4531"                                             # Map the Explorer Web UI port
+    restart: unless-stopped                                                       # Automatically restart unless stopped manually
+    depends_on:
+      timebase-historian:
+        condition: service_healthy                                                # Wait until Historian service is healthy
+    volumes:
+      - explorer-config:/timebase/config
+      - explorer-logs:/timebase/logs
+    networks:
+      - timebase-network                                                          # Connect to the shared application network
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/4531 || exit 1'"]   # Health check for listening on port 4531
+      interval: 10s                                                               # Run the health check every 10 seconds
+      timeout: 5s                                                                 # Fail the check if no response within 5 seconds
+      retries: 3                                                                  # Retry up to 3 times before failing
+      start_period: 30s                                                           # Grace period before health checks start
+
+  # Node-RED Service
+  node-red:
+    image: nodered/node-red:${NODERED_TAG:-latest}                                # Docker image for Node-RED with variable tag
+    hostname: ${NODERED_HOSTNAME:-node-red}                                       # Hostname used for internal networking
+    container_name: ${NODERED_CONTAINER_NAME:-node-red}                           # Container name for easier management
+    ports:
+      - "${NODERED_PORT:-1880}:1880"                                              # Map the Node-RED Web UI port
+    restart: unless-stopped                                                       # Automatically restart unless stopped manually
+    depends_on:                                                                   # Ensure this service starts after its dependencies
+      mqtt-broker:
+        condition: service_healthy                                                # Wait until MQTT Broker is healthy
+    volumes:
+      - node-red-data:/data
+    networks:
+      - timebase-network                                                          # Connect to the shared application network
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/1880 || exit 1'"]   # Health check for listening on port 1880
+      interval: 10s                                                               # Run the health check every 10 seconds
+      timeout: 5s                                                                 # Fail the check if no response within 5 seconds
+      retries: 3                                                                  # Retry up to 3 times before failing
+      start_period: 30s                                                           # Grace period before health checks start
+
+  # EMQX MQTT Broker Service
+  mqtt-broker:
+    image: emqx/emqx:${EMQX_TAG:-latest}                                          # Docker image for EMQX MQTT Broker with variable tag
+    hostname: ${EMQX_HOSTNAME:-broker}                                            # Hostname used for internal networking
+    container_name: ${EMQX_CONTAINER_NAME:-broker}                                # Container name for easier management
+    ports:
+      - "${EMQX_MQTT_PORT:-1883}:1883"                                            # Map the MQTT port
+      - "${EMQX_WS_PORT:-8083}:8083"                                              # Map the WebSocket port
+      - "${EMQX_DASHBOARD_PORT:-18083}:18083"                                     # Map the Management Dashboard port
+    restart: unless-stopped                                                       # Automatically restart unless stopped manually
+    volumes:
+      - emqx-data:/opt/emqx/data
+      - emqx-etc:/opt/emqx/etc
+      - emqx-log:/opt/emqx/log
+    environment:
+      - EMQX_ALLOW_ANONYMOUS=${EMQX_ALLOW_ANONYMOUS:-true}                        # Allow anonymous connections to the MQTT Broker
+    networks:
+      - timebase-network                                                          # Connect to the shared application network
+    healthcheck:
+      test: ["CMD", "/opt/emqx/bin/emqx", "ctl", "status"]                        # Health check for EMQX service status
+      interval: 5s                                                                # Run the health check every 5 seconds
+      timeout: 30s                                                                # Fail the check if no response within 30 seconds
+      retries: 5                                                                  # Retry the health check up to 5 times before failing
+
+# Volumes for persistent data storage
+volumes:
+  historian-data:                                                                 # Volume for storing Historian data
+  historian-logs:                                                                 # Volume for storing Historian logs
+  explorer-config:                                                                # Volume for storing Explorer configuration
+  explorer-logs:                                                                  # Volume for storing Explorer logs
+  collector-config:                                                               # Volume for storing Collector configuration
+  collector-data:                                                                 # Volume for storing Collector data
+  collector-logs:                                                                 # Volume for storing Collector logs
+  node-red-data:                                                                  # Volume for storing Node-RED flows and configurations
+  emqx-data:                                                                      # Volume for storing EMQX data
+  emqx-etc:                                                                       # Volume for storing EMQX configuration
+  emqx-log:                                                                       # Volume for storing EMQX logs
+
+# Dedicated network for service communication
+networks:
+  timebase-network:
+    name: timebase-network
+    driver: bridge
