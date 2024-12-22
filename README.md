@@ -77,7 +77,7 @@ EMQX_ALLOW_ANONYMOUS=true
 
 3. **Deploy from Git**:
    - Select the **Git Repository** option.
-   - Enter the Git repository URL (e.g., `https://github.com/your-username/time-based-historian`).
+   - Enter the Git repository URL (e.g., `https://github.com/DMDuFresne/time-based-historian.git`).
    - Specify the branch (e.g., `main`) and the path to `docker-compose.yml`.
 
 4. **Set environment variables**:
@@ -94,7 +94,7 @@ EMQX_ALLOW_ANONYMOUS=true
 1. **Clone the repository**:
 
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/DMDuFresne/time-based-historian.git
    cd time-based-historian
    ```
 
