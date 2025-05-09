@@ -1,11 +1,11 @@
 # ----------------------------------------------------------------------------------------------------
 # Portainer Template for Timebase Infrastructure
-# Includes Timebase Historian, Explorer, Collector, Node-RED, and EMQX MQTT Broker
+# Includes Timebase Historian, Explorer, Collector, Node-RED, and Mosquitto MQTT Broker
 # ----------------------------------------------------------------------------------------------------
 # References:
 # - https://timebase.flow-software.com/en/knowledge-base/start-here
 # - https://github.com/node-red/node-red
-# - https://github.com/emqx/emqx
+# - https://mosquitto.org/
 # ----------------------------------------------------------------------------------------------------
 
 services:
@@ -18,17 +18,14 @@ services:
     ports:
       - "${HISTORIAN_PORT:-4511}:4511"                                            # Map the Historian REST API port
     restart: unless-stopped                                                       # Automatically restart unless stopped manually
+    environment:
+      - Settings=/historian/settings                                              # Path to the settings file
+      - Data=/historian/data                                                      # Path to the data directory
+      - Logs=/historian/logs                                                      # Path to the logs directory
     volumes:
-      - historian-data:/timebase/data
-      - historian-logs:/timebase/logs
+      - /portainer/Files/AppData/Config/timebase/historian:/historian
     networks:
       - timebase-network                                                          # Connect to the shared application network
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/4511 || exit 1'"]   # Health check for listening on port 4511
-      interval: 10s                                                               # Run the health check every 10 seconds
-      timeout: 5s                                                                 # Fail the check if no response within 5 seconds
-      retries: 3                                                                  # Retry up to 3 times before failing
-      start_period: 30s                                                           # Grace period before health checks start
 
   # Timebase Collector Service
   timebase-collector:
@@ -39,24 +36,17 @@ services:
       - "${COLLECTOR_PORT:-4521}:4521"                                            # Map the Collector REST API port
     restart: unless-stopped                                                       # Automatically restart unless stopped manually
     depends_on:
-      timebase-historian:
-        condition: service_healthy                                                # Wait until Historian service is healthy
-      mqtt-broker:
-        condition: service_healthy                                                # Wait until MQTT Broker is healthy
-    volumes:
-      - collector-config:/timebase/config
-      - collector-data:/timebase/data
-      - collector-logs:/timebase/logs
+      - timebase-historian                                                        # Ensure this service starts after the Historian
     environment:
-      - ACTIVE=${COLLECTOR_ACTIVE:-false}                                         # Set the initial state of the Collector service
+      - Active=false                                                              # Set the initial state of the Collector service
+      - Settings=/collector/settings                                              # Path to the settings file
+      - Config=/collector/config                                                  # Path to the config directory
+      - Data=/collector/data                                                      # Path to the data directory
+      - Logs=/collector/logs                                                      # Path to the logs directory
+    volumes:
+      - /portainer/Files/AppData/Config/timebase/collector:/collector
     networks:
       - timebase-network                                                          # Connect to the shared application network
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/4521 || exit 1'"]   # Health check for listening on port 4521
-      interval: 10s                                                               # Run the health check every 10 seconds
-      timeout: 5s                                                                 # Fail the check if no response within 5 seconds
-      retries: 3                                                                  # Retry up to 3 times before failing
-      start_period: 30s                                                           # Grace period before health checks start
 
   # Timebase Explorer Service
   timebase-explorer:
@@ -67,19 +57,16 @@ services:
       - "${EXPLORER_PORT:-4531}:4531"                                             # Map the Explorer Web UI port
     restart: unless-stopped                                                       # Automatically restart unless stopped manually
     depends_on:
-      timebase-historian:
-        condition: service_healthy                                                # Wait until Historian service is healthy
+      - timebase-historian                                                        # Ensure this service starts after the Historian
+    environment:
+      - Settings=/explorer/settings                                               # Path to the settings file
+      - Config=/explorer/config                                                   # Path to the config directory
+      - Data=/explorer/data                                                       # Path to the data directory
+      - Logs=/explorer/logs                                                       # Path to the logs directory
     volumes:
-      - explorer-config:/timebase/config
-      - explorer-logs:/timebase/logs
+      - /portainer/Files/AppData/Config/timebase/explorer:/explorer
     networks:
       - timebase-network                                                          # Connect to the shared application network
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/4531 || exit 1'"]   # Health check for listening on port 4531
-      interval: 10s                                                               # Run the health check every 10 seconds
-      timeout: 5s                                                                 # Fail the check if no response within 5 seconds
-      retries: 3                                                                  # Retry up to 3 times before failing
-      start_period: 30s                                                           # Grace period before health checks start
 
   # Node-RED Service
   node-red:
@@ -89,57 +76,42 @@ services:
     ports:
       - "${NODERED_PORT:-1880}:1880"                                              # Map the Node-RED Web UI port
     restart: unless-stopped                                                       # Automatically restart unless stopped manually
-    depends_on:                                                                   # Ensure this service starts after its dependencies
-      mqtt-broker:
-        condition: service_healthy                                                # Wait until MQTT Broker is healthy
+    depends_on:
+      - mqtt-broker                                                               # Ensure this service starts after MQTT Broker
     volumes:
-      - node-red-data:/data
+      - node-red-data:/data                   # Bind mount for Node-RED data
     networks:
       - timebase-network                                                          # Connect to the shared application network
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/1880 || exit 1'"]   # Health check for listening on port 1880
-      interval: 10s                                                               # Run the health check every 10 seconds
-      timeout: 5s                                                                 # Fail the check if no response within 5 seconds
-      retries: 3                                                                  # Retry up to 3 times before failing
-      start_period: 30s                                                           # Grace period before health checks start
 
-  # EMQX MQTT Broker Service
+  # Mosquitto MQTT Broker Service
   mqtt-broker:
-    image: emqx/emqx:${EMQX_TAG:-latest}                                          # Docker image for EMQX MQTT Broker with variable tag
-    hostname: ${EMQX_HOSTNAME:-broker}                                            # Hostname used for internal networking
-    container_name: ${EMQX_CONTAINER_NAME:-broker}                                # Container name for easier management
+    image: eclipse-mosquitto:${MOSQUITTO_TAG:-latest}                              # Docker image for Mosquitto MQTT Broker
+    hostname: ${MOSQUITTO_HOSTNAME:-broker}                                        # Hostname used for internal networking
+    container_name: ${MOSQUITTO_CONTAINER_NAME:-mosquitto}                         # Container name for easier management
     ports:
-      - "${EMQX_MQTT_PORT:-1883}:1883"                                            # Map the MQTT port
-      - "${EMQX_WS_PORT:-8083}:8083"                                              # Map the WebSocket port
-      - "${EMQX_DASHBOARD_PORT:-18083}:18083"                                     # Map the Management Dashboard port
-    restart: unless-stopped                                                       # Automatically restart unless stopped manually
+      - "${MOSQUITTO_MQTT_PORT:-1883}:1883"                                        # Map the MQTT port
+    restart: unless-stopped                                                        # Automatically restart unless stopped manually
+    command: |
+      sh -c "
+      echo 'listener 1883 0.0.0.0
+      allow_anonymous true
+      log_type error
+      log_type warning
+      log_type notice
+      log_type information
+      persistence true
+      persistence_location /mosquitto/data/' > /mosquitto/config/mosquitto.conf &&
+      mosquitto -c /mosquitto/config/mosquitto.conf
+      "
     volumes:
-      - emqx-data:/opt/emqx/data
-      - emqx-etc:/opt/emqx/etc
-      - emqx-log:/opt/emqx/log
-    environment:
-      - EMQX_ALLOW_ANONYMOUS=${EMQX_ALLOW_ANONYMOUS:-true}                        # Allow anonymous connections to the MQTT Broker
+      - /portainer/Files/AppData/Config/timebase/mosquitto/config:/mosquitto/config  # Bind mount for config
+      - /portainer/Files/AppData/Config/timebase/mosquitto/data:/mosquitto/data      # Bind mount for data
+      - /portainer/Files/AppData/Config/timebase/mosquitto/log:/mosquitto/log        # Bind mount for logs
     networks:
-      - timebase-network                                                          # Connect to the shared application network
-    healthcheck:
-      test: ["CMD", "/opt/emqx/bin/emqx", "ctl", "status"]                        # Health check for EMQX service status
-      interval: 5s                                                                # Run the health check every 5 seconds
-      timeout: 30s                                                                # Fail the check if no response within 30 seconds
-      retries: 5                                                                  # Retry the health check up to 5 times before failing
+      - timebase-network                                                           # Connect to the shared application network
 
-# Volumes for persistent data storage
 volumes:
-  historian-data:                                                                 # Volume for storing Historian data
-  historian-logs:                                                                 # Volume for storing Historian logs
-  explorer-config:                                                                # Volume for storing Explorer configuration
-  explorer-logs:                                                                  # Volume for storing Explorer logs
-  collector-config:                                                               # Volume for storing Collector configuration
-  collector-data:                                                                 # Volume for storing Collector data
-  collector-logs:                                                                 # Volume for storing Collector logs
-  node-red-data:                                                                  # Volume for storing Node-RED flows and configurations
-  emqx-data:                                                                      # Volume for storing EMQX data
-  emqx-etc:                                                                       # Volume for storing EMQX configuration
-  emqx-log:                                                                       # Volume for storing EMQX logs
+  node-red-data:
 
 # Dedicated network for service communication
 networks:
