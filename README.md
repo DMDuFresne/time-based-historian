@@ -1,4 +1,3 @@
-
 # Time Based Local Historian Stack
 
 ```plaintext
@@ -16,7 +15,7 @@ A Docker Compose stack for deploying a local Industrial Historian infrastructure
 - **Timebase Collector**: Collects and organizes time-series data.
 - **Timebase Explorer**: Provides visualization and exploration tools.
 - **Node-RED**: A flow-based development tool for wiring IoT systems.
-- **EMQX MQTT Broker**: A scalable MQTT broker for real-time data.
+- **Mosquitto MQTT Broker**: A scalable MQTT broker for real-time data.
 
 ## Environment Variables
 
@@ -56,14 +55,13 @@ NODERED_PORT=1880
 ```
 
 ```plaintext
-# EMQX MQTT Broker
-EMQX_TAG=latest
-EMQX_HOSTNAME=broker
-EMQX_CONTAINER_NAME=broker
-EMQX_MQTT_PORT=1883
-EMQX_WS_PORT=8083
-EMQX_DASHBOARD_PORT=18083
-EMQX_ALLOW_ANONYMOUS=true
+# Mosquitto MQTT Broker
+MOSQUITTO_TAG=latest
+MOSQUITTO_HOSTNAME=mqtt-broker
+MOSQUITTO_CONTAINER_NAME=mqtt-broker
+MOSQUITTO_MQTT_PORT=1883
+MOSQUITTO_WS_PORT=9001
+MOSQUITTO_ALLOW_ANONYMOUS=true
 ```
 
 ## Deploying in Portainer
@@ -130,11 +128,22 @@ EMQX_ALLOW_ANONYMOUS=true
 - All services use persistent volumes to store data. These volumes are defined in `docker-compose.yml`.
 - Health checks are included for all services to monitor their readiness and availability.
 
+## File Management
+
+For managing files and configurations across your Time Based Historian stack, we recommend using the [File-Browser](https://github.com/DMDuFresne/File-Browser) repository. This provides a lightweight file manager that can be deployed alongside your historian stack to:
+
+- Browse, upload, and download files
+- Manage configurations
+- Access logs and data files
+- Organize your historian infrastructure files
+
+The File-Browser can be deployed as a separate stack in Portainer and will provide a web-based interface for managing all your files.
+
 ## Help and Configuration
 
 - Timebase: <https://timebase.flow-software.com/en/knowledge-base>
 - Node Red: <https://nodered.org/docs/user-guide/editor/>
-- EMQX:     <https://docs.emqx.com/en/emqx/latest/>
+- Mosquitto: <https://mosquitto.org/documentation/>
 
 ## License
 
