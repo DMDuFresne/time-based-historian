@@ -17,9 +17,11 @@ A Docker Compose stack for deploying a local Industrial Historian infrastructure
 - **Node-RED**: A flow-based development tool for wiring IoT systems.
 - **Mosquitto MQTT Broker**: A scalable MQTT broker for real-time data.
 
+> **Note**: For managing files and configurations, we recommend deploying the [File-Browser](https://github.com/DMDuFresne/File-Browser) stack alongside this historian infrastructure.
+
 ## Environment Variables
 
-The stack uses an `.env` file for configuration. Below are the variables used and some example values:
+The stack uses an `.env` file for configuration. Below are the variables used and their default values:
 
 ```plaintext
 # Timebase Historian
@@ -35,7 +37,6 @@ COLLECTOR_TAG=latest
 COLLECTOR_HOSTNAME=collector
 COLLECTOR_CONTAINER_NAME=collector
 COLLECTOR_PORT=4521
-COLLECTOR_ACTIVE=false
 ```
 
 ```plaintext
@@ -60,8 +61,6 @@ MOSQUITTO_TAG=latest
 MOSQUITTO_HOSTNAME=mqtt-broker
 MOSQUITTO_CONTAINER_NAME=mqtt-broker
 MOSQUITTO_MQTT_PORT=1883
-MOSQUITTO_WS_PORT=9001
-MOSQUITTO_ALLOW_ANONYMOUS=true
 ```
 
 ## Deploying in Portainer
